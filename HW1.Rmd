@@ -1,0 +1,63 @@
+---
+title: "Math 656 HW1"
+author: "Jeff Gould"
+date: "8/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+```{r }
+red_wine <- foreign::read.arff("winequality-red.arff") %>%
+  mutate(wine = "red")
+
+white_wine <- foreign::read.arff("winequality-white.arff") %>%
+  mutate(wine = "white")
+
+
+wine_all <- bind_rows(red_wine, white_wine) 
+wine_all$`residual sugar` = DescTools::Winsorize(wine_all$`residual sugar`, probs = c(0,.99))
+  
+
+```
+
+
+
+
+```{r }
+ggplot(data = red_wine, aes(x = alcohol, y = `residual sugar`, color = wine)) +
+  geom_point() +
+  theme_bw()
+
+ggplot(data = wine_all, aes(x = `residual sugar`)) +
+  geom_density(aes(color = wine, fill = wine), alpha = 0.5) +
+  theme_bw() +
+  scale_x_continuous(limits = c(0,20))
+
+GGally::ggpairs(wine_all, columns = c(4,6, 8,9,11), aes(color = wine, alpha = 0.3))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
