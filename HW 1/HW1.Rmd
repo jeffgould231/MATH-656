@@ -69,13 +69,30 @@ Some other note of interest
 * Red wine tends to have a higher density than white wine. This aligns with common perception of red wine being "heavier" than white, or that it has a higher tannin content
 
 
+Lastly, lets look at the relationships between wine quality and alcohol content:
+
+```{r message=FALSE}
+ggplot(wine_all, aes(x = quality, y = alcohol, color = wine, group = wine)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = lm, formula = y ~ x, level = 0) +
+  facet_wrap(facets = "wine") +
+  scale_color_manual(values = c("red4", "lightgoldenrod")) +
+  theme_bw() +
+  labs(x = "Quality", y = "Alcohol (ABV)")
+
+require(magrittr)
+wine_all %$%
+  cor(as.numeric(quality), alcohol)
+wine_all %>%
+  filter(wine == "red") %$%
+  cor(as.numeric(quality), alcohol)
+wine_all %>%
+  filter(wine == "white") %$%
+  cor(as.numeric(quality), alcohol)
+```
 
 
-
-
-
-
-
+We see that there is a moderate linear relationship between the quality of wine and it's alcohol content, and the total correlation between the two is 0.444, or $R^2 =$ `r wine_all %$% cor(as.numeric(quality), alcohol)^2`.
 
 
 
