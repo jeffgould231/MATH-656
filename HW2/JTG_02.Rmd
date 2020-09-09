@@ -1,0 +1,127 @@
+---
+title: "HW 2"
+author: "Jeff Gould"
+date: "9/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+#### 1 - Read Chapter 3
+
+#### 2 - You are given a set of $m$ objects that is divided into $K$ groups, where the $i^{th}$ group is of size $m_i$. If the goal is to obtain a sample of size $n \le m$, what is the difference between the following sampling schemes?
+
+* We randomly select $n \times m_i/m$ elements from each group
+* We randomly select $n$ elements from the data set, without regards for the group to which an object belongs
+
+Consider this simple example: $K = 10$, $m = 100$, $m_i = 10 \,\,\, \forall i \in [1,2,\dots,10]$, $n = 30$
+
+If we randomly select $n \times m_i/m$ elements from each group, then we will look at each group and sample exactly $3$ objects from each group ($n \times m_i/m = 30 *10/100 = 3$). In a more general sense, our sample will have a representation of each group proportional to that groups representation of the entire data set. This is **stratified random sampling**.
+
+If we randomly select $n = 30$ elements out of the entire data set, then there will likely not be representation for each group directly proportional to their represnetation of the whole data set. Using the example above, we could select $6$ elements from group 1, but not even select a single element from group 3, so long as we sampled 30 total elements. This is **simple random sampling**.
+
+
+
+
+#### 3 - Experiment with different types of binning on the glass data (installed with WEKA or available in R via the mlbench package). Try equal width and equal depth binning. Try various numbers of bins (at least three). Use OneR on the original data and on your binned data. Compare the results and write a brief description of what you observe.
+
+
+First - test `OneR` on the raw data:
+```{r }
+#install.packages("mlbench")
+library(mlbench)
+library(OneR)
+data(Glass)
+
+OneR(Glass)
+```
+
+Using `OneR` on the raw data, we see that by dividing the data based on Aluminum content, we are able to properly classify 46.73% of the data correctly. This rule divides the glass into 5 bins, two of which are classified as type 1.
+
+
+Now bin the data into bins of equal widths, calculate `OneR` for bins of 3, 5, 7, 9, 11, and 13, and show an example plot for 5 bins:
+
+```{r }
+equalWidthOneR <- function(bins){
+  
+  glassBinEqualWidth <- data.frame(apply(Glass[,1:9], 2, cut, include.lowest = T, breaks = bins))
+  glassBinEqualWidth$Type = Glass$Type
+  print(glue::glue("OneR Results using {bins} bins of equal width: "))
+  return(OneR(glassBinEqualWidth))
+}
+for (i in c(3,5,7,9, 11, 13)) {
+  
+  output <- equalWidthOneR(i)
+  print(output)
+}
+
+# glassBins5EqualWidth <- data.frame(apply(Glass[,1:9], 2, cut, include.lowest = T, breaks = 5))
+# glassBins5EqualWidth$Type = Glass$Type
+# glassBins5EqualWidth <- glassBins5EqualWidth %>%
+#   pivot_longer(cols = RI:Fe, names_to = "element", values_to = "bin")
+# 
+# ggplot(glassBins5EqualWidth, aes(x = bin, fill = Type)) +
+#   geom_bar() +
+#   facet_wrap(vars(element), scales = "free_x") +
+#   theme_bw()
+
+glassBins5EqualWidth <- data.frame(apply(Glass[,1:9], 2, function(x){
+    bin(x, method = "length")
+  }))
+glassBins5EqualWidth$Type = Glass$Type
+glassBins5EqualWidth <- glassBins5EqualWidth %>%
+  pivot_longer(cols = RI:Fe, names_to = "element", values_to = "bin")
+
+ggplot(glassBins5EqualWidth, aes(x = bin, fill = Type)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(vars(element), scales = "free_x") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7))
+```
+
+Interestingly, we initially find higher accuracy when dividing the data into 3 bins than 5, achieving 52.8% accuracy. At 7 bins, optimal accuracy is achieved ruling based on Magnesium content, but no improvement relative to 3 bins. When we jump up to 9 bins however, we now reach 57.94% accuracy, classifying on Aluminum again. We see no further improvement when we jump to 11 bins. Accuracy decreases when we jump to 13 bins, suggesting we might be overfitting.
+
+
+Now bin the data into bins of equal depth, calculate the `OneR` rule for bins of 3, 5, 7, 9, 11, 13. Additionally, show an example plot for 5 bins.
+
+```{r }
+equalDepthOneR <- function(bins){
+  
+  glassBinEqualDepth <- data.frame(apply(Glass[,1:9], 2, function(x){
+    cut(x,include.lowest = T,breaks = unique(quantile(x, probs = 0:bins/bins)))
+  }
+    )
+    )
+  glassBinEqualDepth$Type = Glass$Type
+  print(glue::glue("OneR Results using {bins} bins of equal width: "))
+  return(OneR(glassBinEqualDepth))
+}
+for (i in c(3,5,7,9,11, 13)) {
+  output <- equalDepthOneR(i)
+  print(output)
+}
+
+
+glassBins5EqualDepth <- data.frame(apply(Glass[,1:9], 2, function(x){
+    bin(x, method = "content")
+  }))
+glassBins5EqualDepth$Type = Glass$Type
+glassBins5EqualDepth <- glassBins5EqualDepth %>%
+  pivot_longer(cols = RI:Fe, names_to = "element", values_to = "bin")
+
+ggplot(glassBins5EqualDepth, aes(x = bin, fill = Type)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(vars(element), scales = "free_x") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7))
+```
+
+Binning on eqaul depth instead of equal width tends to have higher accuracy. At five bins, classifying on Aluminum, 54.67% accuracy is obtained, compared to 46.73% of five bins. Accuracy gradually increases as the number of bins increases, achieving highest accuracy at 13 bins, where 58.88% of the glass was correctly classified
+
+
+
+
+
