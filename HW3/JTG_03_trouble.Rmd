@@ -1,0 +1,158 @@
+---
+title: "Math 656 - HW3"
+author: "Jeff Gould"
+date: "9/15/2020"
+output: pdf_document:
+  includes:
+    in_header:
+      \DeclareUnicodeCharacter{2212}{-}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, eval = FALSE)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(rpart)
+library(rpart.plot)
+library(ggparty)
+```
+
+### Exercise 3
+
+
+#### a) What is the entropy of this collection of training examples with respect to the class attribute?
+
+```{r }
+
+Table3.6 <- data.frame(
+  Instance = seq(1,9,1),
+  a1 = c(T, T, T, F, F, F, F, T, F),
+  a2 = c(T, T, F, F, T, T, F, F, T),
+  a3 = c(1, 6, 5, 4, 7, 3, 8, 7, 5),
+  TargetClass = c(1,1,0,1,0,0,0,1,0)
+)
+
+```
+
+
+Entropy is defined as $H(N) = -\sum P(i|N)\log_2(P(i|N))$. We have two classes, + (denoted with 1's) and -, denoted with 0's.
+
+There are 4 instances of +, and 5 instances of -, and $N=9$. So the entropy is given by:
+
+$H(N) = -\sum_{i=1}^9 P(i|9)\log_2 (P(i|9)) = -P(+|N)\log_2(P(+|N))-P(-|N)\log_2(P(-|N)) = -\frac{4}{9}\log_2(\frac{4}{9})-\frac{5}{9}\log_2(\frac{5}{9}) =$ `r -4/9 * log2(4/9) - 5/9 * log2(5/9)`
+
+
+#### b) What are the information gains of $a_1$ and $a_2$ relative to these training examples?
+
+Information gain at a node is equal to the entropy of the class attribute minue the entropy at the node, ie at node $a_1$ the information gain is $H(N)-H(a_1)$
+
+$H(a_1) = P(a_1 = F)H(a_1=F)+P(a_1=T)H(a_1=T)$
+
+
+
+
+
+```{r }
+ftable(Table3.6[,c("a1", "TargetClass")])
+```
+
+$H(a_1 = F) = -\frac{4}{5}\log_2\left(\frac{4}{5}\right)-\frac{1}{5}\log_2\left(\frac{1}{5}\right)$
+
+$P(a_1 = F) = 5/9$
+
+$H(a_1 = T) = -\frac{3}{4}\log_2\left(\frac{3}{4}\right) - \frac{1}{4}\log_2\left(\frac{1}{4}\right)$
+
+$P(a_1 = T) = 4/9$
+
+$H(a_1) = -\frac{5}{9}\left[\frac{4}{5}\log_2\left(\frac{4}{5}\right)+\frac{1}{5}\log_2\left(\frac{1}{5}\right)\right] -\frac{4}{9}\left[\frac{3}{4}\log_2\left(\frac{3}{4}\right) + \frac{1}{4}\log_2\left(\frac{1}{4}\right)\right] =$ `r -5/9 * (4/5*log2(4/5) + 1/5*log2(1/5)) + -4/9 * (3/4*log2(3/4) + 1/4*log2(1/4))`
+
+Subtract this from original entropy to get information gain:
+
+
+```{r }
+a1_entropy <- -5/9 * (4/5*log2(4/5) + 1/5*log2(1/5)) + -4/9 * (3/4*log2(3/4) + 1/4*log2(1/4))
+entropy <- -4/9 * log2(4/9) - 5/9 * log2(5/9)
+
+entropy - a1_entropy
+```
+
+
+Follow the same process for $a_2$:
+
+
+
+
+
+
+
+
+
+```{r }
+ftable(Table3.6[,c("a2", "TargetClass")])
+```
+
+$H(a_2 = F) = -\frac{1}{2}\log_2\left(\frac{1}{2}\right)-\frac{1}{2}\log_2\left(\frac{1}{2}\right)$
+
+$P(a_2 = F) = 4/9$
+
+$H(a_2 = T) = -\frac{3}{5}\log_2\left(\frac{3}{5}\right) - \frac{2}{5}\log_2\left(\frac{2}{5}\right)$
+
+$P(a_2 = T) = 5/9$
+
+$H(a_2) = -\frac{4}{9}\left[\frac{1}{2}\log_2\left(\frac{1}{2}\right)+\frac{1}{2}\log_2\left(\frac{1}{2}\right)\right] -\frac{5}{9}\left[\frac{3}{5}\log_2\left(\frac{3}{5}\right) + \frac{2}{5}\log_2\left(\frac{2}{5}\right)\right] =$ 
+`r 4/9 * (-1/2*log2(1/2) + -1/2*log2(1/2)) + 5/9 * (-3/5*log2(3/5) + -2/5*log2(2/5))`
+
+Subtract from entropy to get an information gain of:
+
+
+```{r }
+a2_entropy <- -4/9 * (1/2*log2(1/2) + 1/2*log2(1/2)) + -5/9 * (3/5*log2(3/5) + 2/5*log2(2/5))
+entropy - a2_entropy
+
+```
+
+So we find much greater information gain from $a_1$ than $a_2$, which suggests splitting and classifying the data on $a_1$ is better.
+
+#### e) 
+
+What is the best split, between $a_1$ and $a_2$, according to the misclassification error rate?
+
+Misclassification error rate is simply the number of incorrect classifications divided by $N = 9$
+
+Revisiting the table for $a_1$: 
+
+```{r} 
+ftable(Table3.6[,c("a1", "TargetClass")])
+```
+
+If our classification rule is - if $a_1 = F$ and + if $a_1 = T$, , then we would incorrectly classify one item as - because $a_1 = F$, and incorrectly classify one item as + with $a_1 = T$. This leads to a misclassification rate of $2/9$
+
+Table for $a_2$: 
+
+```{r} 
+ftable(Table3.6[,c("a2", "TargetClass")])
+```
+
+For classifying on $a_2 = F$, it is split 2:2 on whether or not to classify as a + or -. Either way, we have two misclassifications. Classifying for $a_2 = T$, we will classify as a -, with accuracy $3/5$, which gives us 2 misclassifications. The total misclassification rate on $a_2 = 4/9$
+
+Thus, using misclassification rate, the best split is again on $a_1$
+
+
+#### f) What is the best split, between $a_1$ and $a_2$, according to the Gini index?
+
+$Gini(N) = 1 - \sum [p(i|N)]^2$
+
+For $a_1$:
+
+$Gini(a_1 = F )=1 - P(- | a_1 = F )^2 − P(+ | a_1 = F )^2 = 1 − ( \frac{4}{5})^2 − (\frac{1}{5})^2$
+
+$Gini(a_1 = T )= 1 − P ( − | a_1 = T )^2 - P ( + | a_1 = T )^2 = 1 − ( \frac{1}{4} )^2 − ( \frac{3}{4} )^2$
+
+
+
+
+
+
+
+
