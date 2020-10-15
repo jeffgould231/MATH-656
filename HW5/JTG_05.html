@@ -825,15 +825,16 @@ P_C
 </tr>
 </tbody>
 </table>
-<p><span class="math inline">\(P(A|+) =0.6\)</span>, <span class="math inline">\(P(A|-) = 0.4\)</span></p>
-<p><span class="math inline">\(P(B|+) = 0.2\)</span>, <span class="math inline">\(P(B|-) = 0.4\)</span></p>
-<p><span class="math inline">\(P(C|+) = 0.8\)</span>, <span class="math inline">\(P(C|-) = 1\)</span></p>
+<p>Notation for the assignemt will be in this form: <span class="math inline">\(P(A=1)\)</span> will be written as <span class="math inline">\(P(A)\)</span>, <span class="math inline">\(P(A=0)\)</span> will be written as <span class="math inline">\(P(A')\)</span></p>
+<p><span class="math inline">\(P(A|+) =0.6\)</span>, <span class="math inline">\(P(A|-) = 0.4\)</span>, <span class="math inline">\(P(A'|+) = 0.4\)</span>, <span class="math inline">\(P(A'|-) = 0.6\)</span></p>
+<p><span class="math inline">\(P(B|+) = 0.2\)</span>, <span class="math inline">\(P(B|-) = 0.4\)</span>, <span class="math inline">\(P(B'|+) = 0.8\)</span>, <span class="math inline">\(PB'|-) = 0.6\)</span></p>
+<p><span class="math inline">\(P(C|+) = 0.8\)</span>, <span class="math inline">\(P(C|-) = 1\)</span>, <span class="math inline">\(P(C'|+) = 0.2\)</span>, <span class="math inline">\(P(C'|-) = 0\)</span></p>
 </div>
 <div id="b-use-the-estimate-of-conditional-probabilites-given-in-the-previous-question-to-predict-the-class-label-for-a-test-sample-a-0-b-1-c-0" class="section level4">
 <h4>b) Use the estimate of conditional probabilites given in the previous question to predict the class label for a test sample <span class="math inline">\((A = 0, B = 1, C = 0)\)</span></h4>
-<p><span class="math inline">\(P(+|A', B, C') \approx P(A'|+)P(B|+)P(C'|+)P(+) = (0.4)(0.2)(0.4)(0.5)=\)</span> 0.016</p>
+<p><span class="math inline">\(P(+|A', B, C') \approx P(A'|+)P(B|+)P(C'|+)P(+) = (0.4)(0.2)(0.2)(0.5)=\)</span> 0.008</p>
 <p><span class="math inline">\(P(-|A', B, C') \approx P(A'|-)P(B|-)P(C'|-)P(-) = (0.6)(0.4)(0.0)(0.5)= 0\)</span></p>
-<p><span class="math inline">\(P(+|A', B, C') \approx \frac{0.016}{0.016 + 0} = 1\)</span></p>
+<p><span class="math inline">\(P(+|A', B, C') \approx \frac{0.008}{0.008 + 0} = 1\)</span></p>
 </div>
 <div id="c-estimate-the-conditional-probabilites-using-the-m-estimate-approach-with-p-12-and-m-4" class="section level4">
 <h4>c) Estimate the conditional probabilites using the m-estimate approach, with <span class="math inline">\(p = 1/2\)</span> and <span class="math inline">\(m = 4\)</span></h4>

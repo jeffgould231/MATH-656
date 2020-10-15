@@ -1,0 +1,124 @@
+---
+title: "Math 656 Midterm"
+author: "Jeff Gould"
+date: "10/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(RWeka)
+library(caret)
+
+```
+
+
+
+```{r }
+
+arrhythmia_load <- foreign::read.arff("arrhythmia.arff") %>% arrange(class)
+
+
+preProcValues <- preProcess(arrhythmia_load,
+                            method = c("knnImpute"),
+                            k = 20,
+                            knnSummary = mean)
+
+impute_arryhthmia_info <- predict(preProcValues, arrhythmia_load, na.action = na.pass)
+
+procNames <- data.frame(col = names(preProcValues$mean), mean = preProcValues$mean, sd = preProcValues$std)
+
+for(i in procNames$col){
+ impute_arryhthmia_info[i] <- impute_arryhthmia_info[i]*preProcValues$std[i]+preProcValues$mean[i] 
+}
+
+
+arrhythmia_J48_raw <- J48(class ~ ., data = arrhythmia_load, na.action = NULL)
+evaluate_Weka_classifier(arrhythmia_J48_raw, numFolds = 10, seed=1)
+
+arrhythmia_J48_cleaned <- J48(class ~ ., data = impute_arryhthmia_info, control = Weka_control(M=10))
+crosVal <- evaluate_Weka_classifier(arrhythmia_J48_cleaned, numFolds = 10, seed=1)
+
+current_best <- crosVal[["details"]][1]
+baggedCols <- c(sample(c(1:279), 150), 280)
+
+set.seed(123)
+randCols <- t(sapply(rep(100, 500), function(x){c(sample(c(1:279), x), 280)})) 
+
+baggedCols <- t(apply(randCols, 1, function(x){
+  
+  J48_bag <- J48(class ~ ., data = impute_arryhthmia_info[, x], control = Weka_control(M=10))
+  crosValBag <- evaluate_Weka_classifier(J48_bag, numFolds = 10, seed=1)
+  
+  if(crosValBag[["details"]][1] > current_best){
+    return(c(x, crosValBag[["details"]][1]))
+  }else(return(rep(0, length(x)+1)))
+  
+}))
+
+improvedCols <- baggedCols[,-102] %>% unique() %>% as.vector() %>% sort()
+improvedCols <- improvedCols[improvedCols!=0]
+instances <- sapply(c(1:279), function(x)sum(improvedCols == x))
+df <- data.frame(varIndex = c(1:279),
+                 instances = instances) %>% arrange(desc(instances))
+
+colSample <- df %>%
+  top_n(50, instances) %>%
+  select(varIndex) %>% as.vector()
+
+J48new <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 280)], control = Weka_control(M=10))
+
+
+
+
+evaluate_Weka_classifier(J48new, numFolds = 10, seed=1)
+new_best <- evaluate_Weka_classifier(J48new, numFolds = 10, seed=1)[["details"]][1]
+
+top100Vars <- colSample <- df %>%
+  top_n(90, instances) %>%
+  select(varIndex) %>% as.vector()
+
+rand50 <- t(sapply(rep(50, 500), function(x){c(sample(top100Vars$varIndex, x),280)}))
+
+baggedCols2 <- t(apply(rand50, 1, function(x){
+  
+  J48_bag <- J48(class ~ ., data = impute_arryhthmia_info[, x], control = Weka_control(M=10))
+  crosValBag <- evaluate_Weka_classifier(J48_bag, numFolds = 10, seed=1)
+  
+  if(crosValBag[["details"]][1] > new_best*0.99){
+    return(c(x, crosValBag[["details"]][1]))
+  }else(return(rep(0, length(x)+1)))
+  
+}))
+
+improvedCols2 <- baggedCols2[,-(51:52)] %>% unique() %>% as.vector() %>% sort()
+improvedCols2 <- improvedCols2[improvedCols2!=0]
+
+instances2 <- sapply(c(1:279), function(x)sum(improvedCols2 == x))
+df <- data.frame(varIndex = c(1:279),
+                 instances = instances2) %>% arrange(desc(instances))
+
+colSample <- df %>%
+  top_n(27, instances) %>%
+  select(varIndex) %>% as.vector()
+
+J48newest <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 280)], control = Weka_control(M=10))
+
+evaluate_Weka_classifier(J48newest, numFolds = 10, seed=1)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

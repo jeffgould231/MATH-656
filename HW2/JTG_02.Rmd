@@ -34,6 +34,7 @@ First - test `OneR` on the raw data:
 #install.packages("mlbench")
 library(mlbench)
 library(OneR)
+library(RColorBrewer)
 data(Glass)
 
 OneR(Glass)
@@ -79,7 +80,8 @@ ggplot(glassBins5EqualWidth, aes(x = bin, fill = Type)) +
   geom_bar(position = "dodge") +
   facet_wrap(vars(element), scales = "free_x") +
   theme_bw() +
-  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7))
+  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7))+
+  scale_fill_brewer(palette = "Dark2")
 ```
 
 Interestingly, we initially find higher accuracy when dividing the data into 3 bins than 5, achieving 52.8% accuracy. At 7 bins, optimal accuracy is achieved ruling based on Magnesium content, but no improvement relative to 3 bins. When we jump up to 9 bins however, we now reach 57.94% accuracy, classifying on Aluminum again. We see no further improvement when we jump to 11 bins. Accuracy decreases when we jump to 13 bins, suggesting we might be overfitting.
@@ -116,7 +118,8 @@ ggplot(glassBins5EqualDepth, aes(x = bin, fill = Type)) +
   geom_bar(position = "dodge") +
   facet_wrap(vars(element), scales = "free_x") +
   theme_bw() +
-  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7))
+  theme(axis.text.x = element_text(size = 6, angle = 30, vjust = 0.8, hjust = 0.7)) +
+  scale_fill_brewer(palette = "Dark2")
 ```
 
 Binning on eqaul depth instead of equal width tends to have higher accuracy. At five bins, classifying on Aluminum, 54.67% accuracy is obtained, compared to 46.73% of five bins. Accuracy gradually increases as the number of bins increases, achieving highest accuracy at 13 bins, where 58.88% of the glass was correctly classified
