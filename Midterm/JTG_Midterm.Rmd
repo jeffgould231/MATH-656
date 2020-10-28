@@ -2,7 +2,7 @@
 title: "Math 656 Midterm"
 author: "Jeff Gould"
 date: "10/14/2020"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -14,11 +14,28 @@ library(caret)
 ```
 
 
+First we load the arrhythmia data set and run J48 under the default arguments, and test under 10 fold cross-validation. We make no cleaning steps to the underlying data. We see that under cross-validation we achieve 64.823% accuracy:
 
 ```{r }
 
-arrhythmia_load <- foreign::read.arff("arrhythmia.arff") %>% arrange(class)
+arrhythmia_load <- foreign::read.arff("arrhythmia.arff")
 
+arrhythmia_J48_raw <- J48(class ~ ., data = arrhythmia_load, na.action = NULL)
+evaluate_Weka_classifier(arrhythmia_J48_raw, numFolds = 10, seed=1)
+
+```
+
+We see that while there are a total of 408 missing data points, most of them are in the `J` variable, for which 376 of the 452 observations are missing a data point. 
+
+```{r }
+
+findMissing <- colSums(is.na(arrhythmia_load))
+findMissing[findMissing>0]
+```
+
+To fill in the missing values, we use K-Nearest Neighbors imputation. We will use $20 \approx \sqrt{452}$ nearest neighbors, and take the mean of those values to fill in the missing data.
+
+```{r warning=FALSE}
 
 preProcValues <- preProcess(arrhythmia_load,
                             method = c("knnImpute"),
@@ -32,22 +49,49 @@ procNames <- data.frame(col = names(preProcValues$mean), mean = preProcValues$me
 for(i in procNames$col){
  impute_arryhthmia_info[i] <- impute_arryhthmia_info[i]*preProcValues$std[i]+preProcValues$mean[i] 
 }
+```
 
+Now test J48 on the imputed data, and also adjust the minimum object number to 10. This number just came from some trial and error, as accuracy seemed to increase up until this point, but then began to decrease once I moved it higher. With these changes, we find that we are able to achieve 69.6903% accuracy under 10 fold cross-validation.
 
-arrhythmia_J48_raw <- J48(class ~ ., data = arrhythmia_load, na.action = NULL)
-evaluate_Weka_classifier(arrhythmia_J48_raw, numFolds = 10, seed=1)
-
+```{r }
 arrhythmia_J48_cleaned <- J48(class ~ ., data = impute_arryhthmia_info, control = Weka_control(M=10))
 crosVal <- evaluate_Weka_classifier(arrhythmia_J48_cleaned, numFolds = 10, seed=1)
+crosVal
+```
+
+
+In order to narrow down the vairables to choose for sorting, we followed the followign process:
+
+* Select a random sample of 100 variables and run J48 and cross-validation
+* If the variable sample improves our accuracy, store the variables selected, otherwise return a 0 vector
+* Repeat for a total of 1000 random variable samples
+* Take the $\approx$ 75 most common variables that improved our classification, and re-run the classifier
+
+Note, we observed earlier that the following columns have no variation, so since we know that they will not create any entropy gain, we remove them from our sample ahead of time:
+
+`chDI_SPwave, chAVL_SPwave, chV5_SPwave, chV6_SPwave, chDI_SPwaveAmp, chAVL_SPwaveAmp, chV5_SPwaveAmp, chV6_SPwaveAmp`
+
+```{r }
 
 current_best <- crosVal[["details"]][1]
-baggedCols <- c(sample(c(1:279), 150), 280)
+#baggedCols <- c(sample(c(1:279), 150), 280)
+impute_arryhthmia_info <- impute_arryhthmia_info %>%
+  select(-chDI_SPwave, -chAVL_SPwave, -chV5_SPwave, -chV6_SPwave, -chDI_SPwaveAmp, 
+         -chAVL_SPwaveAmp, -chV5_SPwaveAmp, -chV6_SPwaveAmp)
 
 set.seed(123)
-randCols <- t(sapply(rep(100, 500), function(x){c(sample(c(1:279), x), 280)})) 
+randCols <- t(sapply(rep(100, 1000), function(x){c(sample(c(1:271), x), 272)})) 
 
-baggedCols <- t(apply(randCols, 1, function(x){
-  
+
+library(parallel)
+cl <- makeCluster(detectCores() - 1)
+
+
+suppressMessages(clusterEvalQ(cl, library(RWeka)))
+clusterExport(cl, c("impute_arryhthmia_info", "current_best"))
+
+baggedCols <- t(parApply(cl, randCols, 1, function(x){
+  #require(RWeka)
   J48_bag <- J48(class ~ ., data = impute_arryhthmia_info[, x], control = Weka_control(M=10))
   crosValBag <- evaluate_Weka_classifier(J48_bag, numFolds = 10, seed=1)
   
@@ -57,31 +101,40 @@ baggedCols <- t(apply(randCols, 1, function(x){
   
 }))
 
+
 improvedCols <- baggedCols[,-102] %>% unique() %>% as.vector() %>% sort()
 improvedCols <- improvedCols[improvedCols!=0]
-instances <- sapply(c(1:279), function(x)sum(improvedCols == x))
-df <- data.frame(varIndex = c(1:279),
+instances <- sapply(c(1:271), function(x)sum(improvedCols == x))
+df <- data.frame(varIndex = c(1:271),
                  instances = instances) %>% arrange(desc(instances))
 
 colSample <- df %>%
-  top_n(50, instances) %>%
+  top_n(75, instances) %>%
   select(varIndex) %>% as.vector()
 
-J48new <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 280)], control = Weka_control(M=10))
-
-
-
-
+J48new <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 272)], control = Weka_control(M=10))
 evaluate_Weka_classifier(J48new, numFolds = 10, seed=1)
+```
+
+After testing the J48 classification on the $\approx 75$ (actually 84) most common variables that improved our classification, we find that we were able to improve accuracy to 73.23% under 10 fold cross-validation
+
+
+Now we try to reiterate the same steps as above, except this time we will pull samples of 50 columns from the $\approx 100$ most frequent variables that showed up in our samples that improved the classifier.
+
+
+```{r }
 new_best <- evaluate_Weka_classifier(J48new, numFolds = 10, seed=1)[["details"]][1]
 
-top100Vars <- colSample <- df %>%
-  top_n(90, instances) %>%
+top100Vars <- df %>%
+  top_n(95, instances) %>%
   select(varIndex) %>% as.vector()
 
-rand50 <- t(sapply(rep(50, 500), function(x){c(sample(top100Vars$varIndex, x),280)}))
+set.seed(123)
+rand50 <- t(sapply(rep(50, 1000), function(x){c(sample(top100Vars$varIndex, x),272)}))
 
-baggedCols2 <- t(apply(rand50, 1, function(x){
+clusterExport(cl, c("impute_arryhthmia_info", "new_best"))
+
+baggedCols2 <- t(parApply(cl, rand50, 1, function(x){
   
   J48_bag <- J48(class ~ ., data = impute_arryhthmia_info[, x], control = Weka_control(M=10))
   crosValBag <- evaluate_Weka_classifier(J48_bag, numFolds = 10, seed=1)
@@ -91,29 +144,40 @@ baggedCols2 <- t(apply(rand50, 1, function(x){
   }else(return(rep(0, length(x)+1)))
   
 }))
+stopCluster(cl)
 
 improvedCols2 <- baggedCols2[,-(51:52)] %>% unique() %>% as.vector() %>% sort()
 improvedCols2 <- improvedCols2[improvedCols2!=0]
 
-instances2 <- sapply(c(1:279), function(x)sum(improvedCols2 == x))
-df <- data.frame(varIndex = c(1:279),
+instances2 <- sapply(c(1:271), function(x)sum(improvedCols2 == x))
+df <- data.frame(varIndex = c(1:271),
                  instances = instances2) %>% arrange(desc(instances))
 
 colSample <- df %>%
-  top_n(27, instances) %>%
+  top_n(25, instances) %>%
   select(varIndex) %>% as.vector()
-
-J48newest <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 280)], control = Weka_control(M=10))
-
-evaluate_Weka_classifier(J48newest, numFolds = 10, seed=1)
-
-
 ```
 
+We were to improve the accuracy from the previous step to 74.7788%, and we were able to do that with just 25 variables. This is significantly fewer and much easier classification. And furthermore, it's about a  10 percentage point increase from running the default classifier on the raw data. 
 
+```{r }
+J48newest <- J48(class ~ ., data = impute_arryhthmia_info[,c(colSample$varIndex, 272)], control = Weka_control(M=10))
 
+evaluate_Weka_classifier(J48newest, numFolds = 10, seed=1)
+```
 
+Here are the variables that the classifier ended up using:
 
+```{r }
+colnames(impute_arryhthmia_info[,c(colSample$varIndex)])
+```
+
+And here is the final decision tree:
+
+```{r }
+J48newest
+
+```
 
 
 
